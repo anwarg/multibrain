@@ -21,7 +21,7 @@ def should_distill(messages: List[MessageRecord]) -> bool:
     return False
 
 
-async def summarize_history(existing_summary: str, recent_messages: List[MessageRecord], settings: Settings, fidelity: str = "standard") -> str:
+async def summarize_history(existing_summary: str, recent_messages: List[MessageRecord], settings: Settings, fidelity: str = "standard", distillation_model: Optional[str] = None) -> str:
     """Summarize conversation history incrementally with configurable fidelity."""
     messages_text = "\n".join([
         f"{msg.role}: {msg.content}"
@@ -54,7 +54,8 @@ Conversation:
 
 {fidelity_instruction} This summary will be used to provide context for future messages in the conversation."""
     
-    distillation_model = settings.distillation.model
+    if distillation_model is None:
+        distillation_model = settings.distillation.model
     
     if distillation_model == "openai":
         response = await call_openai(prompt, settings)

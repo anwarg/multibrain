@@ -57,6 +57,7 @@ class ConversationRecord:
     updated_at: datetime
     summary: str = ""
     fidelity: str = "standard"  # high, standard, low
+    distillation_model: str = "gemini"  # openai, perplexity, anthropic, gemini
     messages: List[MessageRecord] = field(default_factory=list)
 
 
@@ -169,21 +170,26 @@ class UsersStore:
                 provider_settings.api_key = "***"
         return settings
     
-    def create_conversation(self, username: str, title: str, fidelity: Optional[str] = None) -> ConversationRecord:
+    def create_conversation(self, username: str, title: str, fidelity: Optional[str] = None, distillation_model: Optional[str] = None) -> ConversationRecord:
         """Create a new conversation for user."""
         if username not in self.conversations:
             self.conversations[username] = {}
         
+        user_settings = self.get_user_settings(username)
+        
         if fidelity is None:
-            user_settings = self.get_user_settings(username)
             fidelity = user_settings.distillation.fidelity
+        
+        if distillation_model is None:
+            distillation_model = user_settings.distillation.model
         
         conversation = ConversationRecord(
             id=str(uuid.uuid4()),
             title=title,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
-            fidelity=fidelity
+            fidelity=fidelity,
+            distillation_model=distillation_model
         )
         self.conversations[username][conversation.id] = conversation
         return conversation
@@ -200,7 +206,8 @@ class UsersStore:
                 "title": c.title,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),
-                "fidelity": c.fidelity
+                "fidelity": c.fidelity,
+                "distillation_model": c.distillation_model
             }
             for c in sorted(conversations, key=lambda x: x.updated_at, reverse=True)
         ]
@@ -238,6 +245,18 @@ class UsersStore:
             raise ValueError(f"Invalid fidelity: {fidelity}")
         
         conversation.fidelity = fidelity
+        conversation.updated_at = datetime.utcnow()
+    
+    def update_distillation_model(self, username: str, conversation_id: str, distillation_model: str) -> None:
+        """Update conversation distillation model setting."""
+        conversation = self.get_conversation(username, conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+        
+        if distillation_model not in ["openai", "perplexity", "anthropic", "gemini"]:
+            raise ValueError(f"Invalid distillation model: {distillation_model}")
+        
+        conversation.distillation_model = distillation_model
         conversation.updated_at = datetime.utcnow()
     
     def delete_conversation(self, username: str, conversation_id: str) -> bool:

@@ -13,6 +13,7 @@ interface Conversation {
   created_at: string
   updated_at: string
   fidelity?: string
+  distillation_model?: string
 }
 
 interface Message {
@@ -42,6 +43,7 @@ export default function ConversationInterface() {
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [expandedProviders, setExpandedProviders] = useState<{ [key: string]: boolean }>({})
   const [conversationFidelity, setConversationFidelity] = useState<string>('standard')
+  const [conversationDistillationModel, setConversationDistillationModel] = useState<string>('gemini')
 
   useEffect(() => {
     loadConversations()
@@ -78,6 +80,7 @@ export default function ConversationInterface() {
         const data = await response.json()
         setMessages(data.messages || [])
         setConversationFidelity(data.fidelity || 'standard')
+        setConversationDistillationModel(data.distillation_model || 'gemini')
       }
     } catch (error) {
       console.error('Failed to load messages:', error)
@@ -217,6 +220,35 @@ export default function ConversationInterface() {
     }
   }
 
+  const updateDistillationModel = async (distillation_model: string) => {
+    if (!selectedConversation) return
+
+    try {
+      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation}/distillation-model`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ distillation_model })
+      })
+
+      if (response.ok) {
+        setConversationDistillationModel(distillation_model)
+        setConversations(conversations.map(c => 
+          c.id === selectedConversation ? { ...c, distillation_model } : c
+        ))
+        toast({
+          title: 'Success',
+          description: 'Distillation model updated'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update distillation model',
+        variant: 'destructive'
+      })
+    }
+  }
+
   return (
     <div className="flex gap-4 h-full">
       <div className="w-64 flex-shrink-0">
@@ -295,18 +327,34 @@ export default function ConversationInterface() {
                   : 'Select a conversation'}
               </CardTitle>
               {selectedConversation && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Context Fidelity:</span>
-                  <Select value={conversationFidelity} onValueChange={updateFidelity}>
-                    <SelectTrigger className="w-32 h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Fidelity:</span>
+                    <Select value={conversationFidelity} onValueChange={updateFidelity}>
+                      <SelectTrigger className="w-28 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Distill Model:</span>
+                    <Select value={conversationDistillationModel} onValueChange={updateDistillationModel}>
+                      <SelectTrigger className="w-32 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="openai">OpenAI</SelectItem>
+                        <SelectItem value="perplexity">Perplexity</SelectItem>
+                        <SelectItem value="anthropic">Anthropic</SelectItem>
+                        <SelectItem value="gemini">Gemini</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
             </div>

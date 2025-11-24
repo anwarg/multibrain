@@ -156,6 +156,7 @@ async def get_conversation(conversation_id: str, username: str = Depends(verify_
         "updated_at": conversation.updated_at.isoformat(),
         "summary": conversation.summary,
         "fidelity": conversation.fidelity,
+        "distillation_model": conversation.distillation_model,
         "messages": [
             {
                 "id": msg.id,
@@ -191,7 +192,8 @@ async def send_message(conversation_id: str, request: SendMessageRequest, userna
             conversation.summary,
             conversation.messages[-4:],
             settings,
-            conversation.fidelity
+            conversation.fidelity,
+            conversation.distillation_model
         )
         users_store.update_summary(username, conversation_id, new_summary)
         conversation = users_store.get_conversation(username, conversation_id)
@@ -246,11 +248,27 @@ class UpdateFidelityRequest(BaseModel):
     fidelity: str
 
 
+class UpdateDistillationModelRequest(BaseModel):
+    distillation_model: str
+
+
 @app.patch("/api/conversations/{conversation_id}/fidelity")
 async def update_conversation_fidelity(conversation_id: str, request: UpdateFidelityRequest, username: str = Depends(verify_token)):
     try:
         users_store.update_fidelity(username, conversation_id, request.fidelity)
         return {"status": "success", "message": "Fidelity updated successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@app.patch("/api/conversations/{conversation_id}/distillation-model")
+async def update_conversation_distillation_model(conversation_id: str, request: UpdateDistillationModelRequest, username: str = Depends(verify_token)):
+    try:
+        users_store.update_distillation_model(username, conversation_id, request.distillation_model)
+        return {"status": "success", "message": "Distillation model updated successfully"}
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
