@@ -157,6 +157,7 @@ async def get_conversation(conversation_id: str, username: str = Depends(verify_
         "summary": conversation.summary,
         "fidelity": conversation.fidelity,
         "distillation_model": conversation.distillation_model,
+        "distillation_mode": conversation.distillation_mode,
         "messages": [
             {
                 "id": msg.id,
@@ -252,6 +253,10 @@ class UpdateDistillationModelRequest(BaseModel):
     distillation_model: str
 
 
+class UpdateDistillationModeRequest(BaseModel):
+    distillation_mode: str
+
+
 @app.patch("/api/conversations/{conversation_id}/fidelity")
 async def update_conversation_fidelity(conversation_id: str, request: UpdateFidelityRequest, username: str = Depends(verify_token)):
     try:
@@ -269,6 +274,18 @@ async def update_conversation_distillation_model(conversation_id: str, request: 
     try:
         users_store.update_distillation_model(username, conversation_id, request.distillation_model)
         return {"status": "success", "message": "Distillation model updated successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@app.patch("/api/conversations/{conversation_id}/distillation-mode")
+async def update_conversation_distillation_mode(conversation_id: str, request: UpdateDistillationModeRequest, username: str = Depends(verify_token)):
+    try:
+        users_store.update_distillation_mode(username, conversation_id, request.distillation_mode)
+        return {"status": "success", "message": "Distillation mode updated successfully"}
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

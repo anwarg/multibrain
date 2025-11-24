@@ -14,6 +14,7 @@ interface Conversation {
   updated_at: string
   fidelity?: string
   distillation_model?: string
+  distillation_mode?: string
 }
 
 interface Message {
@@ -44,6 +45,7 @@ export default function ConversationInterface() {
   const [expandedProviders, setExpandedProviders] = useState<{ [key: string]: boolean }>({})
   const [conversationFidelity, setConversationFidelity] = useState<string>('standard')
   const [conversationDistillationModel, setConversationDistillationModel] = useState<string>('gemini')
+  const [conversationDistillationMode, setConversationDistillationMode] = useState<string>('single')
 
   useEffect(() => {
     loadConversations()
@@ -81,6 +83,7 @@ export default function ConversationInterface() {
         setMessages(data.messages || [])
         setConversationFidelity(data.fidelity || 'standard')
         setConversationDistillationModel(data.distillation_model || 'gemini')
+        setConversationDistillationMode(data.distillation_mode || 'single')
       }
     } catch (error) {
       console.error('Failed to load messages:', error)
@@ -249,6 +252,35 @@ export default function ConversationInterface() {
     }
   }
 
+  const updateDistillationMode = async (distillation_mode: string) => {
+    if (!selectedConversation) return
+
+    try {
+      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation}/distillation-mode`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ distillation_mode })
+      })
+
+      if (response.ok) {
+        setConversationDistillationMode(distillation_mode)
+        setConversations(conversations.map(c => 
+          c.id === selectedConversation ? { ...c, distillation_mode } : c
+        ))
+        toast({
+          title: 'Success',
+          description: 'Distillation mode updated'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update distillation mode',
+        variant: 'destructive'
+      })
+    }
+  }
+
   return (
     <div className="flex gap-4 h-full">
       <div className="w-64 flex-shrink-0">
@@ -352,6 +384,18 @@ export default function ConversationInterface() {
                         <SelectItem value="perplexity">Perplexity</SelectItem>
                         <SelectItem value="anthropic">Anthropic</SelectItem>
                         <SelectItem value="gemini">Gemini</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Distill Mode:</span>
+                    <Select value={conversationDistillationMode} onValueChange={updateDistillationMode}>
+                      <SelectTrigger className="w-32 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single Model</SelectItem>
+                        <SelectItem value="per-model">Per-Model</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
