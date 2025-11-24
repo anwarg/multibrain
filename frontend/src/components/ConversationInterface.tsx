@@ -3,6 +3,7 @@ import { MessageSquare, Plus, Send, Trash2, ChevronDown, ChevronUp } from 'lucid
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { useToast } from '../hooks/use-toast'
 import { API_URL, getAuthHeaders } from '../utils/api'
 
@@ -11,6 +12,7 @@ interface Conversation {
   title: string
   created_at: string
   updated_at: string
+  fidelity?: string
 }
 
 interface Message {
@@ -39,6 +41,7 @@ export default function ConversationInterface() {
   const [loading, setLoading] = useState(false)
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [expandedProviders, setExpandedProviders] = useState<{ [key: string]: boolean }>({})
+  const [conversationFidelity, setConversationFidelity] = useState<string>('standard')
 
   useEffect(() => {
     loadConversations()
@@ -74,6 +77,7 @@ export default function ConversationInterface() {
       if (response.ok) {
         const data = await response.json()
         setMessages(data.messages || [])
+        setConversationFidelity(data.fidelity || 'standard')
       }
     } catch (error) {
       console.error('Failed to load messages:', error)
@@ -184,6 +188,35 @@ export default function ConversationInterface() {
     }))
   }
 
+  const updateFidelity = async (fidelity: string) => {
+    if (!selectedConversation) return
+
+    try {
+      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation}/fidelity`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ fidelity })
+      })
+
+      if (response.ok) {
+        setConversationFidelity(fidelity)
+        setConversations(conversations.map(c => 
+          c.id === selectedConversation ? { ...c, fidelity } : c
+        ))
+        toast({
+          title: 'Success',
+          description: 'Context fidelity updated'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update fidelity',
+        variant: 'destructive'
+      })
+    }
+  }
+
   return (
     <div className="flex gap-4 h-full">
       <div className="w-64 flex-shrink-0">
@@ -255,11 +288,28 @@ export default function ConversationInterface() {
       <div className="flex-1">
         <Card className="h-full flex flex-col">
           <CardHeader>
-            <CardTitle>
-              {selectedConversation
-                ? conversations.find(c => c.id === selectedConversation)?.title || 'Conversation'
-                : 'Select a conversation'}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                {selectedConversation
+                  ? conversations.find(c => c.id === selectedConversation)?.title || 'Conversation'
+                  : 'Select a conversation'}
+              </CardTitle>
+              {selectedConversation && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Context Fidelity:</span>
+                  <Select value={conversationFidelity} onValueChange={updateFidelity}>
+                    <SelectTrigger className="w-32 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col">
             {!selectedConversation ? (

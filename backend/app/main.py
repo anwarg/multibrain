@@ -155,6 +155,7 @@ async def get_conversation(conversation_id: str, username: str = Depends(verify_
         "created_at": conversation.created_at.isoformat(),
         "updated_at": conversation.updated_at.isoformat(),
         "summary": conversation.summary,
+        "fidelity": conversation.fidelity,
         "messages": [
             {
                 "id": msg.id,
@@ -189,7 +190,8 @@ async def send_message(conversation_id: str, request: SendMessageRequest, userna
         new_summary = await summarize_history(
             conversation.summary,
             conversation.messages[-4:],
-            settings
+            settings,
+            conversation.fidelity
         )
         users_store.update_summary(username, conversation_id, new_summary)
         conversation = users_store.get_conversation(username, conversation_id)
@@ -238,6 +240,22 @@ async def send_message(conversation_id: str, request: SendMessageRequest, userna
             "timestamp": assistant_message.timestamp.isoformat()
         }
     }
+
+
+class UpdateFidelityRequest(BaseModel):
+    fidelity: str
+
+
+@app.patch("/api/conversations/{conversation_id}/fidelity")
+async def update_conversation_fidelity(conversation_id: str, request: UpdateFidelityRequest, username: str = Depends(verify_token)):
+    try:
+        users_store.update_fidelity(username, conversation_id, request.fidelity)
+        return {"status": "success", "message": "Fidelity updated successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @app.delete("/api/conversations/{conversation_id}")

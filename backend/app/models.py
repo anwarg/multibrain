@@ -11,6 +11,7 @@ class ProviderSettings(BaseModel):
 class DistillationSettings(BaseModel):
     mode: str = "single"
     model: str = "gemini"
+    fidelity: str = "standard"  # high, standard, low
 
 
 class Settings(BaseModel):

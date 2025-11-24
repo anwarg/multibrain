@@ -25,6 +25,7 @@ class DistillationSettingsEnc:
     """Distillation settings."""
     mode: str = "single"
     model: str = "gemini"
+    fidelity: str = "standard"  # high, standard, low
 
 
 @dataclass
@@ -55,6 +56,7 @@ class ConversationRecord:
     created_at: datetime
     updated_at: datetime
     summary: str = ""
+    fidelity: str = "standard"  # high, standard, low
     messages: List[MessageRecord] = field(default_factory=list)
 
 
@@ -131,7 +133,8 @@ class UsersStore:
         
         settings.distillation = DistillationSettings(
             mode=user.settings_enc.distillation.mode,
-            model=user.settings_enc.distillation.model
+            model=user.settings_enc.distillation.model,
+            fidelity=user.settings_enc.distillation.fidelity
         )
         
         return settings
@@ -153,7 +156,8 @@ class UsersStore:
         
         user.settings_enc.distillation = DistillationSettingsEnc(
             mode=settings.distillation.mode,
-            model=settings.distillation.model
+            model=settings.distillation.model,
+            fidelity=settings.distillation.fidelity
         )
     
     def get_user_settings_masked(self, username: str) -> Settings:
@@ -165,16 +169,21 @@ class UsersStore:
                 provider_settings.api_key = "***"
         return settings
     
-    def create_conversation(self, username: str, title: str) -> ConversationRecord:
+    def create_conversation(self, username: str, title: str, fidelity: Optional[str] = None) -> ConversationRecord:
         """Create a new conversation for user."""
         if username not in self.conversations:
             self.conversations[username] = {}
+        
+        if fidelity is None:
+            user_settings = self.get_user_settings(username)
+            fidelity = user_settings.distillation.fidelity
         
         conversation = ConversationRecord(
             id=str(uuid.uuid4()),
             title=title,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
+            fidelity=fidelity
         )
         self.conversations[username][conversation.id] = conversation
         return conversation
@@ -190,7 +199,8 @@ class UsersStore:
                 "id": c.id,
                 "title": c.title,
                 "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat()
+                "updated_at": c.updated_at.isoformat(),
+                "fidelity": c.fidelity
             }
             for c in sorted(conversations, key=lambda x: x.updated_at, reverse=True)
         ]
@@ -217,6 +227,18 @@ class UsersStore:
             raise ValueError(f"Conversation {conversation_id} not found")
         
         conversation.summary = summary
+    
+    def update_fidelity(self, username: str, conversation_id: str, fidelity: str) -> None:
+        """Update conversation fidelity setting."""
+        conversation = self.get_conversation(username, conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+        
+        if fidelity not in ["high", "standard", "low"]:
+            raise ValueError(f"Invalid fidelity: {fidelity}")
+        
+        conversation.fidelity = fidelity
+        conversation.updated_at = datetime.utcnow()
     
     def delete_conversation(self, username: str, conversation_id: str) -> bool:
         """Delete conversation."""

@@ -18,6 +18,7 @@ interface ProviderSettings {
 interface DistillationSettings {
   mode: string
   model: string
+  fidelity: string
 }
 
 interface Settings {
@@ -46,7 +47,7 @@ export default function SettingsPage({ onClose }: SettingsPageProps) {
     perplexity: { api_key: null, model: 'sonar', enabled: true },
     anthropic: { api_key: null, model: 'claude-3-sonnet-20240229', enabled: true },
     gemini: { api_key: null, model: 'gemini-pro', enabled: true },
-    distillation: { mode: 'single', model: 'gemini' }
+    distillation: { mode: 'single', model: 'gemini', fidelity: 'standard' }
   })
   const [loading, setLoading] = useState(true)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -461,6 +462,25 @@ export default function SettingsPage({ onClose }: SettingsPageProps) {
                 </Select>
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="distillation-fidelity">Default Context Fidelity</Label>
+              <Select
+                value={settings.distillation.fidelity}
+                onValueChange={(value) => setSettings(prev => ({
+                  ...prev,
+                  distillation: { ...prev.distillation, fidelity: value }
+                }))}
+              >
+                <SelectTrigger id="distillation-fidelity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High (detailed, preserves nuances)</SelectItem>
+                  <SelectItem value="standard">Standard (balanced)</SelectItem>
+                  <SelectItem value="low">Low (concise, high-level)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
       </div>

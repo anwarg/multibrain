@@ -21,12 +21,20 @@ def should_distill(messages: List[MessageRecord]) -> bool:
     return False
 
 
-async def summarize_history(existing_summary: str, recent_messages: List[MessageRecord], settings: Settings) -> str:
-    """Summarize conversation history incrementally."""
+async def summarize_history(existing_summary: str, recent_messages: List[MessageRecord], settings: Settings, fidelity: str = "standard") -> str:
+    """Summarize conversation history incrementally with configurable fidelity."""
     messages_text = "\n".join([
         f"{msg.role}: {msg.content}"
         for msg in recent_messages
     ])
+    
+    fidelity_instructions = {
+        "high": "Create a detailed, comprehensive summary that preserves nuances, specific details, examples, and context. Aim for thoroughness over brevity.",
+        "standard": "Create a balanced summary that captures key points, important details, and essential context. Balance comprehensiveness with conciseness.",
+        "low": "Create a concise, high-level summary focusing only on the most critical points and main themes. Prioritize brevity."
+    }
+    
+    fidelity_instruction = fidelity_instructions.get(fidelity, fidelity_instructions["standard"])
     
     if existing_summary:
         prompt = f"""You are tasked with updating a conversation summary.
@@ -37,14 +45,14 @@ Existing summary:
 New messages to incorporate:
 {messages_text}
 
-Please update the summary to include the key points from the new messages while maintaining the context from the existing summary. Keep the summary concise but comprehensive."""
+Please update the summary to include the key points from the new messages while maintaining the context from the existing summary. {fidelity_instruction}"""
     else:
         prompt = f"""You are tasked with creating a summary of a conversation.
 
 Conversation:
 {messages_text}
 
-Please create a concise summary that captures the key points, questions asked, and important information exchanged. This summary will be used to provide context for future messages in the conversation."""
+{fidelity_instruction} This summary will be used to provide context for future messages in the conversation."""
     
     distillation_model = settings.distillation.model
     
