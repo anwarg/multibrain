@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.models import Settings, PromptRequest, AggregatedResponse
 from app.storage import users_store, MessageRecord
 from app.providers import call_all_providers, synthesize_responses
-from app.distill import should_distill, summarize_history, select_context
+from app.distill import should_distill, summarize_history, summarize_history_per_model, select_context
 from app.auth import (
     LoginRequest, RegisterRequest, Token, ChangePasswordRequest, authenticate_user, 
     create_access_token, verify_token, ACCESS_TOKEN_EXPIRE_MINUTES
@@ -158,6 +158,7 @@ async def get_conversation(conversation_id: str, username: str = Depends(verify_
         "fidelity": conversation.fidelity,
         "distillation_model": conversation.distillation_model,
         "distillation_mode": conversation.distillation_mode,
+        "per_model_summaries": conversation.per_model_summaries,
         "messages": [
             {
                 "id": msg.id,
@@ -189,17 +190,32 @@ async def send_message(conversation_id: str, request: SendMessageRequest, userna
     
     if should_distill(conversation.messages):
         settings = users_store.get_user_settings(username)
-        new_summary = await summarize_history(
-            conversation.summary,
-            conversation.messages[-4:],
-            settings,
-            conversation.fidelity,
-            conversation.distillation_model
-        )
-        users_store.update_summary(username, conversation_id, new_summary)
+        
+        if conversation.distillation_mode == "per-model":
+            new_summaries = await summarize_history_per_model(
+                conversation.per_model_summaries,
+                conversation.messages[-4:],
+                settings,
+                conversation.fidelity
+            )
+            users_store.update_per_model_summaries(username, conversation_id, new_summaries)
+        else:
+            new_summary = await summarize_history(
+                conversation.summary,
+                conversation.messages[-4:],
+                settings,
+                conversation.fidelity,
+                conversation.distillation_model
+            )
+            users_store.update_summary(username, conversation_id, new_summary)
+        
         conversation = users_store.get_conversation(username, conversation_id)
     
-    context = select_context(conversation.summary, conversation.messages[:-1])
+    if conversation.distillation_mode == "per-model":
+        context = select_context("", conversation.messages[:-1])
+        context["per_model_summaries"] = conversation.per_model_summaries
+    else:
+        context = select_context(conversation.summary, conversation.messages[:-1])
     
     settings = users_store.get_user_settings(username)
     responses = await call_all_providers(

@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from app.storage import MessageRecord
 from app.models import Settings
 from app.providers import call_gemini, call_openai, call_perplexity, call_anthropic
@@ -87,3 +87,60 @@ def select_context(summary: str, messages: List[MessageRecord], max_messages: in
         "summary": summary,
         "context_messages": context_messages
     }
+
+
+async def summarize_history_per_model(
+    existing_summaries: Dict[str, str],
+    recent_messages: List[MessageRecord],
+    settings: Settings,
+    fidelity: str = "standard",
+    enabled_providers: Optional[List[str]] = None
+) -> Dict[str, str]:
+    """Summarize conversation history separately for each provider.
+    
+    Args:
+        existing_summaries: Dict mapping provider name to existing summary
+        recent_messages: Recent messages to incorporate
+        settings: User settings
+        fidelity: Distillation fidelity level
+        enabled_providers: List of enabled provider names (e.g., ["openai", "anthropic"])
+    
+    Returns:
+        Dict mapping provider name to updated summary
+    """
+    import asyncio
+    
+    if enabled_providers is None:
+        enabled_providers = []
+        if settings.openai.enabled and settings.openai.api_key:
+            enabled_providers.append("openai")
+        if settings.anthropic.enabled and settings.anthropic.api_key:
+            enabled_providers.append("anthropic")
+        if settings.gemini.enabled and settings.gemini.api_key:
+            enabled_providers.append("gemini")
+        if settings.perplexity.enabled and settings.perplexity.api_key:
+            enabled_providers.append("perplexity")
+    
+    tasks = []
+    provider_names = []
+    
+    for provider in enabled_providers:
+        existing_summary = existing_summaries.get(provider, "")
+        tasks.append(
+            summarize_history(
+                existing_summary,
+                recent_messages,
+                settings,
+                fidelity,
+                distillation_model=provider
+            )
+        )
+        provider_names.append(provider)
+    
+    summaries = await asyncio.gather(*tasks)
+    
+    result = {}
+    for provider, summary in zip(provider_names, summaries):
+        result[provider] = summary
+    
+    return result

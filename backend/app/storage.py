@@ -59,6 +59,7 @@ class ConversationRecord:
     fidelity: str = "standard"  # high, standard, low
     distillation_model: str = "gemini"  # openai, perplexity, anthropic, gemini
     distillation_mode: str = "single"  # single, per-model
+    per_model_summaries: Dict[str, str] = field(default_factory=dict)  # For per-model mode
     messages: List[MessageRecord] = field(default_factory=list)
 
 
@@ -234,12 +235,22 @@ class UsersStore:
         conversation.updated_at = datetime.utcnow()
     
     def update_summary(self, username: str, conversation_id: str, summary: str) -> None:
-        """Update conversation summary."""
+        """Update conversation summary (for single-model mode)."""
         conversation = self.get_conversation(username, conversation_id)
         if not conversation:
             raise ValueError(f"Conversation {conversation_id} not found")
         
         conversation.summary = summary
+        conversation.updated_at = datetime.utcnow()
+    
+    def update_per_model_summaries(self, username: str, conversation_id: str, summaries: Dict[str, str]) -> None:
+        """Update per-model summaries (for per-model mode)."""
+        conversation = self.get_conversation(username, conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+        
+        conversation.per_model_summaries = summaries
+        conversation.updated_at = datetime.utcnow()
     
     def update_fidelity(self, username: str, conversation_id: str, fidelity: str) -> None:
         """Update conversation fidelity setting."""

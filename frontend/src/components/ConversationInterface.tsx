@@ -15,6 +15,8 @@ interface Conversation {
   fidelity?: string
   distillation_model?: string
   distillation_mode?: string
+  summary?: string
+  per_model_summaries?: Record<string, string>
 }
 
 interface Message {
@@ -46,6 +48,9 @@ export default function ConversationInterface() {
   const [conversationFidelity, setConversationFidelity] = useState<string>('standard')
   const [conversationDistillationModel, setConversationDistillationModel] = useState<string>('gemini')
   const [conversationDistillationMode, setConversationDistillationMode] = useState<string>('single')
+  const [showDistilledContent, setShowDistilledContent] = useState<boolean>(false)
+  const [distilledContent, setDistilledContent] = useState<{summary?: string, per_model_summaries?: Record<string, string>}>({})
+
 
   useEffect(() => {
     loadConversations()
@@ -84,6 +89,10 @@ export default function ConversationInterface() {
         setConversationFidelity(data.fidelity || 'standard')
         setConversationDistillationModel(data.distillation_model || 'gemini')
         setConversationDistillationMode(data.distillation_mode || 'single')
+        setDistilledContent({
+          summary: data.summary,
+          per_model_summaries: data.per_model_summaries
+        })
       }
     } catch (error) {
       console.error('Failed to load messages:', error)
@@ -399,6 +408,14 @@ export default function ConversationInterface() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDistilledContent(!showDistilledContent)}
+                    className="h-8"
+                  >
+                    {showDistilledContent ? 'Hide' : 'View'} Distilled Content
+                  </Button>
                 </div>
               )}
             </div>
@@ -413,6 +430,36 @@ export default function ConversationInterface() {
               </div>
             ) : (
               <>
+                {showDistilledContent && (
+                  <div className="border-b bg-gray-50 p-4 mb-4">
+                    <h3 className="font-semibold mb-2">Distilled Context</h3>
+                    {conversationDistillationMode === 'single' ? (
+                      <div className="bg-white p-3 rounded border text-sm">
+                        <div className="font-medium text-gray-700 mb-1">
+                          Single Model Summary ({conversationDistillationModel})
+                        </div>
+                        <div className="text-gray-600">
+                          {distilledContent.summary || 'No summary yet'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="font-medium text-gray-700 mb-1">Per-Model Summaries</div>
+                        {distilledContent.per_model_summaries && Object.keys(distilledContent.per_model_summaries).length > 0 ? (
+                          Object.entries(distilledContent.per_model_summaries).map(([provider, summary]) => (
+                            <div key={provider} className="bg-white p-3 rounded border text-sm">
+                              <div className="font-medium text-gray-700 mb-1 capitalize">{provider}</div>
+                              <div className="text-gray-600">{summary}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-gray-500 text-sm">No per-model summaries yet</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <div className="flex-1 overflow-y-auto space-y-4 mb-4">
                   {messages.map((msg) => (
                     <div
